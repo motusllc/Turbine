@@ -49,13 +49,14 @@ public class TurbineInit {
     private static final Logger logger = LoggerFactory.getLogger(TurbineInit.class);
 
     private static final DynamicStringProperty InstanceDiscoveryClassProp = DynamicPropertyFactory.getInstance().getStringProperty("InstanceDiscovery.impl", null);
+    private static final DynamicStringProperty ClusterMonitorFactoryClassProp = DynamicPropertyFactory.getInstance().getStringProperty("ClusterMonitorFactory.impl", null);
 
     @SuppressWarnings("rawtypes")
     public static void init() {
 
         ClusterMonitorFactory clusterMonitorFactory = PluginsFactory.getClusterMonitorFactory();
         if(clusterMonitorFactory == null) {
-            PluginsFactory.setClusterMonitorFactory(new DefaultAggregatorFactory());
+            PluginsFactory.setClusterMonitorFactory(getClusterMonitorFactoryImpl());
         }
 
         PluginsFactory.getClusterMonitorFactory().initClusterMonitors();
@@ -107,6 +108,25 @@ public class TurbineInit {
             return (InstanceDiscovery) clazz.newInstance();
         } catch (Exception e) {
             logger.error("Could not load InstanceDiscovery impl class", e);
+            throw new RuntimeException(e);
+        }
+    }
+    
+    private static ClusterMonitorFactory<?> getClusterMonitorFactoryImpl() {
+
+        String className = ClusterMonitorFactoryClassProp.get();
+        if (className == null) {
+            logger.info("Property " + ClusterMonitorFactoryClassProp.getName() + " is not defined, hence using " + DefaultAggregatorFactory.class.getSimpleName() + " as ClusterMonitorFactory impl");
+            return new DefaultAggregatorFactory();
+        } else {
+            logger.info("Using class " + className + " for cluster monitor factory");
+        }
+
+        try {
+            Class clazz = Class.forName(className);
+            return (ClusterMonitorFactory<?>) clazz.newInstance();
+        } catch (Exception e) {
+            logger.error("Could not load ClusterMonitorFactory impl class", e);
             throw new RuntimeException(e);
         }
     }
